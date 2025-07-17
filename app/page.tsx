@@ -9,13 +9,23 @@ const SRL_ROLES = [
   { value: "NEGATION", label: "NEGATION", desc: "Từ phủ định làm thay đổi ý nghĩa (ví dụ: không, chưa từng)" },
   { value: "TIME", label: "TIME", desc: "Thông tin thời gian nếu có (ví dụ: 'tối qua', 'năm 2020')" },
   { value: "MODALITY", label: "MODALITY", desc: "Mức độ, sắc thái (ví dụ: 'có thể tốt hơn', 'rất thích')" },
-  { value: "EMOTION", label: "EMOTION", desc: "(Tùy chọn) Từ chỉ cảm xúc rõ ràng (ví dụ: 'yêu thích', 'ghét')" },
 ];
 
 const SAMPLE_TEXTS = [
   "Tôi rất thích diễn xuất của diễn viên chính trong bộ phim này, nhưng cốt truyện thì khá nhàm chán.",
   "Bộ phim này không thực sự hấp dẫn như tôi mong đợi.",
   "Âm nhạc trong phim làm tôi cảm thấy rất xúc động." 
+];
+
+const SENTIMENTS = [
+  { value: "joy", label: "Joy", color: "bg-yellow-200 text-yellow-900 dark:bg-yellow-700 dark:text-yellow-100" },
+  { value: "sadness", label: "Sadness", color: "bg-blue-200 text-blue-900 dark:bg-blue-800 dark:text-blue-100" },
+  { value: "anticipation", label: "Anticipation", color: "bg-orange-200 text-orange-900 dark:bg-orange-700 dark:text-orange-100" },
+  { value: "anger", label: "Anger", color: "bg-red-200 text-red-900 dark:bg-red-700 dark:text-red-100" },
+  { value: "optimism", label: "Optimism", color: "bg-green-200 text-green-900 dark:bg-green-700 dark:text-green-100" },
+  { value: "surprise", label: "Surprise", color: "bg-pink-200 text-pink-900 dark:bg-pink-700 dark:text-pink-100" },
+  { value: "fear", label: "Fear", color: "bg-purple-200 text-purple-900 dark:bg-purple-700 dark:text-purple-100" },
+  { value: "disgust", label: "Disgust", color: "bg-teal-200 text-teal-900 dark:bg-teal-700 dark:text-teal-100" },
 ];
 
 type Label = {
@@ -47,6 +57,8 @@ export default function Home() {
   const [labels, setLabels] = useState<Label[][]>(Array(SAMPLE_TEXTS.length).fill([]));
   const [selectedWords, setSelectedWords] = useState<number[]>([]);
   const [selectedRole, setSelectedRole] = useState<string>(SRL_ROLES[0].value);
+  const [sentiments, setSentiments] = useState<(string | null)[]>(Array(SAMPLE_TEXTS.length).fill(null));
+  const [selectedSentiment, setSelectedSentiment] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Split sentence into words (keep punctuation attached)
@@ -93,16 +105,6 @@ export default function Home() {
     setSelectedWords([]);
   };
 
-  // Combine selected words into one (for labeling)
-  const handleCombine = () => {
-    // Just keep selection as is; combine is handled by label creation
-  };
-
-  // Separate: deselect all
-  const handleSeparate = () => {
-    setSelectedWords([]);
-  };
-
   // Navigation
   const handlePrev = () => {
     setCurrentIdx((idx) => Math.max(0, idx - 1));
@@ -111,6 +113,19 @@ export default function Home() {
   const handleNext = () => {
     setCurrentIdx((idx) => Math.min(texts.length - 1, idx + 1));
     setSelectedWords([]);
+  };
+
+  // When navigating, update selectedSentiment to match currentIdx
+  React.useEffect(() => {
+    setSelectedSentiment(sentiments[currentIdx] || "");
+  }, [currentIdx]);
+
+  // Save sentiment for current sentence
+  const handleSaveSentiment = () => {
+    const newSentiments = sentiments.map((s, i) =>
+      i === currentIdx ? selectedSentiment : s
+    );
+    setSentiments(newSentiments);
   };
 
   // CSV Upload (now only takes 'text' column)
@@ -140,6 +155,7 @@ export default function Home() {
       }
       setTexts(texts);
       setLabels(Array(texts.length).fill([]));
+      setSentiments(Array(texts.length).fill(null));
       setCurrentIdx(0);
     };
     reader.readAsText(file);
@@ -166,13 +182,40 @@ export default function Home() {
           end,
         };
       });
-      return { text, labels: labelObjs };
+      return { text, labels: labelObjs, sentiment: sentiments[idx] || null };
     });
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = "labels.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Export remaining unlabeled data to CSV
+  const handleExportUnlabeled = () => {
+    // Unlabeled: no labels and no sentiment
+    const unlabeled = texts.filter((_, idx) => {
+      const hasLabels = (labels[idx] && labels[idx].length > 0);
+      const hasSentiment = sentiments[idx];
+      return !hasLabels && !hasSentiment;
+    });
+    if (unlabeled.length === 0) {
+      alert("All data has been labeled!");
+      return;
+    }
+    let csv = 'text\n';
+    unlabeled.forEach(text => {
+      // Escape quotes
+      const safeText = '"' + text.replace(/"/g, '""') + '"';
+      csv += safeText + '\n';
+    });
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "unlabeled.csv";
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -197,7 +240,6 @@ export default function Home() {
         NEGATION: "bg-red-200 text-red-900 dark:bg-red-700 dark:text-red-100 font-semibold",
         TIME: "bg-pink-200 text-pink-900 dark:bg-pink-700 dark:text-pink-100 font-semibold",
         MODALITY: "bg-orange-200 text-orange-900 dark:bg-orange-700 dark:text-orange-100 font-semibold",
-        EMOTION: "bg-teal-200 text-teal-900 dark:bg-teal-700 dark:text-teal-100 font-semibold",
       };
       const color = colorMap[l.role as keyof typeof colorMap] || "bg-gray-200 text-gray-900 dark:bg-gray-700 dark:text-gray-100 font-semibold";
       result.push(
@@ -212,68 +254,84 @@ export default function Home() {
   }
 
   return (
-    <div className="container mx-auto py-8 px-2 dark:bg-gray-900 min-h-screen">
-      <h1 className="text-2xl font-bold text-center mb-6 dark:text-gray-100">Semantic Role Labeling Tool</h1>
-      {/* CSV Upload & Export */}
-      <div className="flex flex-col md:flex-row gap-4 mb-6">
-        <div className="md:w-1/2 bg-white dark:bg-gray-800 rounded shadow p-4">
-          <h2 className="font-semibold mb-2 dark:text-gray-100">Upload CSV File</h2>
-          <form id="upload-form" className="flex flex-col gap-2" onSubmit={handleUpload}>
-            <input ref={fileInputRef} type="file" accept=".csv" className="border rounded px-2 py-1 dark:bg-gray-900 dark:text-gray-100" />
-            <button type="submit" className="bg-blue-600 text-white rounded px-4 py-1.5 hover:bg-blue-700">Upload</button>
-          </form>
-        </div>
-        <div className="md:w-1/2 bg-white dark:bg-gray-800 rounded shadow p-4 flex flex-col justify-between">
-          <h2 className="font-semibold mb-2 dark:text-gray-100">Export Labels</h2>
-          <button onClick={handleExport} className="bg-green-600 text-white rounded px-4 py-1.5 hover:bg-green-700">Export to JSON</button>
+    <div className="w-full min-h-screen py-2 px-1 sm:py-4 sm:px-2 dark:bg-gray-900 font-sans" style={{ fontFamily: `'Noto Sans', Arial, Helvetica, sans-serif` }}>
+      <h1 className="text-3xl font-bold text-center mb-6 dark:text-gray-100">Semantic Role Labeling Tool</h1>
+      {/* Top Bar: Upload & Export */}
+      <div className="flex flex-col sm:flex-row gap-2 mb-2 sm:mb-3 items-center justify-between w-full px-1 sm:px-0 text-base">
+        <form id="upload-form" className="flex gap-2 items-center w-full sm:w-auto" onSubmit={handleUpload}>
+          <input ref={fileInputRef} type="file" accept=".csv" className="border rounded px-1 py-1 sm:px-2 dark:bg-gray-900 dark:text-gray-100 w-full sm:w-48 text-sm sm:text-base" />
+          <button type="submit" className="bg-blue-600 text-white rounded px-2 py-1 sm:px-4 sm:py-1.5 hover:bg-blue-700 text-sm sm:text-base w-full sm:w-auto">Upload</button>
+        </form>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <button onClick={handleExport} className="bg-green-600 text-white rounded px-2 py-1 sm:px-4 sm:py-1.5 hover:bg-green-700 w-full sm:w-auto text-sm sm:text-base">Export to JSON</button>
+          <button onClick={handleExportUnlabeled} className="bg-yellow-500 text-white rounded px-2 py-1 sm:px-4 sm:py-1.5 hover:bg-yellow-600 w-full sm:w-auto text-sm sm:text-base">Export Unlabeled to CSV</button>
         </div>
       </div>
-      <div className="flex flex-col md:flex-row gap-6">
-        {/* Main Labeling Area */}
-        <div className="md:w-2/3 bg-white dark:bg-gray-800 rounded shadow p-4">
-          <h2 className="font-semibold mb-3 dark:text-gray-100">Text to Label</h2>
-          {/* Navigation */}
-          <div className="flex justify-between items-center mb-3">
-            <button onClick={handlePrev} className="bg-gray-200 dark:bg-gray-700 dark:text-gray-100 px-3 py-1 rounded disabled:opacity-50" disabled={currentIdx === 0}>Previous</button>
-            <span className="text-gray-500 dark:text-gray-300">Text {currentIdx + 1} of {texts.length}</span>
-            <button onClick={handleNext} className="bg-gray-200 dark:bg-gray-700 dark:text-gray-100 px-3 py-1 rounded disabled:opacity-50" disabled={currentIdx === texts.length - 1}>Next</button>
+      <div className="flex flex-col md:flex-row gap-2 sm:gap-4 w-full">
+        {/* Left Column: Labeling, Sentiment, Descriptions */}
+        <div className="w-full md:w-2/3 flex flex-col gap-1 sm:gap-2 text-base">
+          {/* Navigation & Sentence */}
+          <div className="flex items-center justify-between gap-1 sm:gap-2 mb-1 w-full">
+            <button onClick={handlePrev} className="bg-gray-200 dark:bg-gray-700 dark:text-gray-100 px-2 py-1 rounded text-sm sm:text-base disabled:opacity-50" disabled={currentIdx === 0}>Previous</button>
+            <span className="text-gray-500 dark:text-gray-300 text-sm sm:text-base">Text {currentIdx + 1} of {texts.length}</span>
+            <button onClick={handleNext} className="bg-gray-200 dark:bg-gray-700 dark:text-gray-100 px-2 py-1 rounded text-sm sm:text-base disabled:opacity-50" disabled={currentIdx === texts.length - 1}>Next</button>
           </div>
           {/* Sentence with highlights */}
-          <div className="mb-3 border rounded p-3 bg-gray-50 dark:bg-gray-900 text-lg min-h-[48px]">
+          <div className="border rounded p-1 sm:p-2 bg-gray-50 dark:bg-gray-900 text-base sm:text-lg min-h-[32px] sm:min-h-[40px] mb-1 w-full overflow-x-auto">
             {renderSentenceWithLabels()}
           </div>
+          {/* Sentiment Labeling */}
+          <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-1 w-full">
+            <label className="font-semibold dark:text-gray-100 text-sm sm:text-base">Emotion:</label>
+            <select
+              className="border rounded px-1 py-1 sm:px-2 text-sm sm:text-base dark:bg-gray-900 dark:text-gray-100"
+              value={selectedSentiment}
+              onChange={e => setSelectedSentiment(e.target.value)}
+            >
+              <option value="">Select emotion</option>
+              {SENTIMENTS.map(s => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
+            </select>
+            <button
+              onClick={handleSaveSentiment}
+              className="bg-blue-600 text-white px-2 py-1 sm:px-3 sm:py-1 rounded hover:bg-blue-700 text-sm sm:text-base"
+              disabled={!selectedSentiment}
+            >
+              Save
+            </button>
+            {sentiments[currentIdx] && (
+              (() => {
+                const s = SENTIMENTS.find(s => s.value === sentiments[currentIdx]);
+                return s ? (
+                  <span className={`ml-2 text-sm font-semibold px-2 py-0.5 rounded ${s.color}`}>{s.label}</span>
+                ) : null;
+              })()
+            )}
+          </div>
           {/* Words Display */}
-          <div className="mb-3">
-            <div className="flex flex-wrap gap-1 p-3 border rounded min-h-[48px] bg-gray-50 dark:bg-gray-900">
-              {words.map((word, idx) => {
-                // Is this word labeled?
-                const label = (labels[currentIdx] || []).find(l => l.wordIndices.includes(idx));
-                const isSelected = selectedWords.includes(idx);
-                return (
-                  <span
-                    key={idx}
-                    className={`cursor-pointer px-2 py-1 rounded transition select-none
-                      ${label ? "bg-blue-200 text-blue-900 dark:bg-blue-800 dark:text-blue-100 font-semibold" : isSelected ? "bg-yellow-200 text-yellow-900 dark:bg-yellow-700 dark:text-yellow-100 font-semibold" : "hover:bg-gray-200 dark:hover:bg-gray-700 dark:text-gray-100"}`}
-                    onClick={() => handleWordClick(idx)}
-                  >
-                    {word}
-                  </span>
-                );
-              })}
-            </div>
+          <div className="flex flex-wrap gap-1 p-1 sm:p-2 border rounded min-h-[28px] sm:min-h-[36px] bg-gray-50 dark:bg-gray-900 mb-1 w-full overflow-x-auto text-base sm:text-lg">
+            {words.map((word, idx) => {
+              const label = (labels[currentIdx] || []).find(l => l.wordIndices.includes(idx));
+              const isSelected = selectedWords.includes(idx);
+              return (
+                <span
+                  key={idx}
+                  className={`cursor-pointer px-2 py-0.5 rounded transition select-none text-base sm:text-lg
+                    ${label ? "bg-blue-200 text-blue-900 dark:bg-blue-800 dark:text-blue-100 font-semibold" : isSelected ? "bg-yellow-200 text-yellow-900 dark:bg-yellow-700 dark:text-yellow-100 font-semibold" : "hover:bg-gray-200 dark:hover:bg-gray-700 dark:text-gray-100"}`}
+                  onClick={() => handleWordClick(idx)}
+                >
+                  {word}
+                </span>
+              );
+            })}
           </div>
-          {/* Controls */}
-          <div className="mb-3 flex gap-2 flex-wrap">
-            <button onClick={handleCombine} className="border px-3 py-1 rounded text-sm dark:border-gray-600 dark:text-gray-100">Combine</button>
-            <button onClick={handleSeparate} className="border px-3 py-1 rounded text-sm dark:border-gray-600 dark:text-gray-100">Separate</button>
-            <button onClick={handleResetLabels} className="border px-3 py-1 rounded text-sm text-red-600 dark:border-gray-600 dark:text-red-400">Reset</button>
-          </div>
-          {/* Role Selection & Save */}
-          <div className="mb-3">
-            <label htmlFor="role-select" className="font-semibold block mb-1 dark:text-gray-100">Select Role:</label>
+          {/* Label Controls */}
+          <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-1 w-full">
+            <label htmlFor="role-select" className="font-semibold dark:text-gray-100 text-sm sm:text-base">Role:</label>
             <select
               id="role-select"
-              className="border rounded px-2 py-1 text-base dark:bg-gray-900 dark:text-gray-100"
+              className="border rounded px-1 py-1 sm:px-2 text-sm sm:text-base dark:bg-gray-900 dark:text-gray-100"
               value={selectedRole}
               onChange={e => setSelectedRole(e.target.value)}
             >
@@ -283,41 +341,54 @@ export default function Home() {
             </select>
             <button
               onClick={handleSaveLabel}
-              className={`ml-3 bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 transition ${selectedWords.length === 0 ? "opacity-50 cursor-not-allowed" : ""}`}
+              className={`bg-blue-600 text-white px-2 py-1 sm:px-3 sm:py-1 rounded hover:bg-blue-700 text-sm sm:text-base ${selectedWords.length === 0 ? "opacity-50 cursor-not-allowed" : ""}`}
               disabled={selectedWords.length === 0}
             >
               Save Label
             </button>
+            <button onClick={handleResetLabels} className="border px-2 py-1 sm:px-3 rounded text-sm sm:text-base text-red-600 dark:border-gray-600 dark:text-red-400">Reset</button>
           </div>
           {/* Label Descriptions */}
-          <div className="mb-3 p-4 bg-gray-50 dark:bg-gray-900 rounded border dark:border-gray-700">
-            <strong className="dark:text-gray-100">Label Descriptions:</strong>
+          <div className="p-1 sm:p-2 bg-gray-50 dark:bg-gray-900 rounded border dark:border-gray-700 w-full overflow-x-auto">
+            <strong className="dark:text-gray-100 text-sm sm:text-base">Label Descriptions:</strong>
             <ul className="text-sm pl-4 list-disc space-y-1 mt-1 dark:text-gray-200">
-              {SRL_ROLES.map(role => (
-                <li key={role.value}>
-                  <b>{role.label}</b>: {role.desc}
-                </li>
-              ))}
+              {SRL_ROLES.map(role => {
+                const badgeColors: Record<string, string> = {
+                  ASPECT: "bg-blue-200 text-blue-900 dark:bg-blue-800 dark:text-blue-100",
+                  OPINION: "bg-yellow-200 text-yellow-900 dark:bg-yellow-700 dark:text-yellow-100",
+                  HOLDER: "bg-green-200 text-green-900 dark:bg-green-700 dark:text-green-100",
+                  TARGET: "bg-purple-200 text-purple-900 dark:bg-purple-700 dark:text-purple-100",
+                  NEGATION: "bg-red-200 text-red-900 dark:bg-red-700 dark:text-red-100",
+                  TIME: "bg-pink-200 text-pink-900 dark:bg-pink-700 dark:text-pink-100",
+                  MODALITY: "bg-orange-200 text-orange-900 dark:bg-orange-700 dark:text-orange-100",
+                };
+                return (
+                  <li key={role.value} className="flex items-center gap-2">
+                    <span className={`inline-block rounded px-2 py-0.5 font-bold text-sm ${badgeColors[role.value]}`}>{role.label}</span>
+                    <span>{role.desc}</span>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         </div>
-        {/* Current Labels Sidebar */}
-        <div className="md:w-1/3 bg-white dark:bg-gray-800 rounded shadow p-4">
-          <h2 className="font-semibold mb-3 dark:text-gray-100">Current Labels</h2>
-          <div className="flex flex-col gap-2">
+        {/* Right Column: Current Labels */}
+        <div className="w-full md:w-1/3 bg-white dark:bg-gray-800 rounded shadow p-1 sm:p-2 flex flex-col gap-1 sm:gap-2 min-w-[180px] sm:min-w-[220px] max-h-[40vh] md:max-h-[90vh] overflow-y-auto mt-2 md:mt-0 text-base" style={{ fontFamily: `'Noto Sans', Arial, Helvetica, sans-serif` }}>
+          <h2 className="font-semibold mb-1 sm:mb-2 dark:text-gray-100 text-sm sm:text-base">Current Labels</h2>
+          <div className="flex flex-col gap-1">
             {(labels[currentIdx] || []).length === 0 ? (
               <div className="text-gray-400 italic dark:text-gray-500">No labels yet.</div>
             ) : (
               (labels[currentIdx] || []).map((label, idx) => (
                 <div key={idx} className="flex items-center gap-2 border rounded px-2 py-1 bg-gray-50 dark:bg-gray-900 dark:border-gray-700">
-                  <span className="font-mono text-base bg-gray-100 dark:bg-gray-800 rounded px-2 py-0.5 dark:text-gray-100">
+                  <span className="text-sm bg-gray-100 dark:bg-gray-800 rounded px-2 py-0.5 dark:text-gray-100" style={{ fontFamily: `'Noto Sans', Arial, Helvetica, sans-serif` }}>
                     {label.text}
                   </span>
-                  <span className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100 font-semibold">
+                  <span className="text-sm px-2 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100 font-semibold">
                     {label.role}
                   </span>
                   <button
-                    className="ml-2 text-xs text-red-500 hover:underline dark:text-red-400"
+                    className="ml-2 text-sm text-red-500 hover:underline dark:text-red-400"
                     onClick={() => handleRemoveLabel(idx)}
                     title="Remove label"
                   >
