@@ -90,7 +90,7 @@ A modern, browser-based tool for annotating text with semantic roles (SRL) and s
 
 - Example UI:
 
-![SRL Tool Screenshot](Screenshot 2025-07-17 124207.png)
+![SRL Tool Screenshot](Screenshot.png)
 
 ---
 
