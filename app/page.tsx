@@ -183,7 +183,9 @@ export default function Home() {
         };
       });
       return { text, labels: labelObjs, sentiment: sentiments[idx] || null };
-    });
+    })
+    // Only keep items with at least one label or a sentiment
+    .filter(item => (item.labels && item.labels.length > 0) || item.sentiment);
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
