@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-and-deploy:
-    runs-on: [self-hosted, linux]
+    runs-on: self-hosted
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -23,16 +23,16 @@ jobs:
       - name: Build app
         run: npm run build
 
-      - name: Install pm2 globally (as edwardxd)
-        run: sudo -H -u edwardxd npm install -g pm2
+      - name: Install pm2 globally
+        run: npm install -g pm2
 
-      - name: Start or restart app with pm2 on port 3009 (as edwardxd)
+      - name: Start or restart app with pm2 on port 3009
         run: |
-          if sudo -H -u edwardxd pm2 list | grep -q 'labeling-tool'; then
-            sudo -H -u edwardxd pm2 restart labeling-tool
+          if pm2 list | grep -q 'labeling-tool'; then
+            pm2 restart labeling-tool
           else
-            sudo -H -u edwardxd PORT=3009 pm2 start npm --name "labeling-tool" -- start
+            PORT=3009 pm2 start npm --name "labeling-tool" -- start
           fi
 
-      - name: Show pm2 process list (as edwardxd)
-        run: sudo -H -u edwardxd pm2 ls
+      - name: Show pm2 process list
+        run: pm2 ls
