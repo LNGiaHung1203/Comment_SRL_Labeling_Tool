@@ -141,14 +141,14 @@ export default function Home() {
       if (lines.length === 0) return;
       let textColIdx = 0;
       let startIdx = 0;
-      const header = lines[0].split(",");
+      const header = lines[0].split(";");
       if (header.some(h => h.trim().toLowerCase() === "text")) {
         textColIdx = header.findIndex(h => h.trim().toLowerCase() === "text");
         startIdx = 1;
       }
       const texts: string[] = [];
       for (let i = startIdx; i < lines.length; i++) {
-        const row = lines[i].split(",");
+        const row = lines[i].split(";");
         if (row.length > textColIdx) {
           texts.push(row[textColIdx].replace(/^"|"$/g, ""));
         }
