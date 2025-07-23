@@ -34,6 +34,7 @@ type Label = {
   role: string;
   start?: number;
   end?: number;
+  emotion?: string; // Only for ASPECT
 };
 
 function getWordCharRange(words: string[], wordIndices: number[]): { start: number; end: number } {
@@ -57,8 +58,16 @@ export default function Home() {
   const [labels, setLabels] = useState<Label[][]>(Array(SAMPLE_TEXTS.length).fill([]));
   const [selectedWords, setSelectedWords] = useState<number[]>([]);
   const [selectedRole, setSelectedRole] = useState<string>(SRL_ROLES[0].value);
-  const [sentiments, setSentiments] = useState<(string | null)[]>(Array(SAMPLE_TEXTS.length).fill(null));
-  const [selectedSentiment, setSelectedSentiment] = useState<string>("");
+  // Remove sentence-level emotion state and logic
+  // Remove:
+  //   const [sentiments, setSentiments] = useState<(string | null)[]>(Array(SAMPLE_TEXTS.length).fill(null));
+  //   const [selectedSentiment, setSelectedSentiment] = useState<string>("");
+  //   React.useEffect(() => { setSelectedSentiment(sentiments[currentIdx] || ""); }, [currentIdx]);
+  //   const handleSaveSentiment = ...
+  //   All UI for sentence-level emotion
+  //
+  // Add emotion to Label type (only for ASPECT)
+  const [aspectEmotion, setAspectEmotion] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Split sentence into words (keep punctuation attached)
@@ -82,12 +91,18 @@ export default function Home() {
     if (currentLabels.some((l) => l.wordIndices.some((i) => sorted.includes(i)))) return;
     // Calculate char start/end
     const { start, end } = getWordCharRange(words, sorted);
-    const newLabel: Label = { wordIndices: sorted, text, role: selectedRole, start, end };
+    let newLabel: Label;
+    if (selectedRole === "ASPECT") {
+      newLabel = { wordIndices: sorted, text, role: selectedRole, start, end, emotion: aspectEmotion || undefined };
+    } else {
+      newLabel = { wordIndices: sorted, text, role: selectedRole, start, end };
+    }
     const newLabels = labels.map((arr, i) =>
       i === currentIdx ? [...arr, newLabel] : arr
     );
     setLabels(newLabels);
     setSelectedWords([]);
+    setAspectEmotion("");
   };
 
   // Remove a label
@@ -116,17 +131,17 @@ export default function Home() {
   };
 
   // When navigating, update selectedSentiment to match currentIdx
-  React.useEffect(() => {
-    setSelectedSentiment(sentiments[currentIdx] || "");
-  }, [currentIdx]);
+  // React.useEffect(() => {
+  //   setSelectedSentiment(sentiments[currentIdx] || "");
+  // }, [currentIdx]);
 
   // Save sentiment for current sentence
-  const handleSaveSentiment = () => {
-    const newSentiments = sentiments.map((s, i) =>
-      i === currentIdx ? selectedSentiment : s
-    );
-    setSentiments(newSentiments);
-  };
+  // const handleSaveSentiment = () => {
+  //   const newSentiments = sentiments.map((s, i) =>
+  //     i === currentIdx ? selectedSentiment : s
+  //   );
+  //   setSentiments(newSentiments);
+  // };
 
   // CSV Upload (now only takes 'text' column)
   const handleUpload = (e: React.FormEvent) => {
@@ -155,7 +170,7 @@ export default function Home() {
       }
       setTexts(texts);
       setLabels(Array(texts.length).fill([]));
-      setSentiments(Array(texts.length).fill(null));
+      // setSentiments(Array(texts.length).fill(null)); // Removed
       setCurrentIdx(0);
     };
     reader.readAsText(file);
@@ -175,17 +190,14 @@ export default function Home() {
           start = range.start;
           end = range.end;
         }
-        return {
-          role: label.role,
-          text: label.text,
-          start,
-          end,
-        };
+        // Only include emotion for ASPECT
+        const base = { role: label.role, text: label.text, start, end };
+        return label.role === "ASPECT" && label.emotion ? { ...base, emotion: label.emotion } : base;
       });
-      return { text, labels: labelObjs, sentiment: sentiments[idx] || null };
+      return { text, labels: labelObjs };
     })
     // Only keep items with at least one label or a sentiment
-    .filter(item => (item.labels && item.labels.length > 0) || item.sentiment);
+    .filter(item => item.labels && item.labels.length > 0);
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -200,8 +212,8 @@ export default function Home() {
     // Unlabeled: no labels and no sentiment
     const unlabeled = texts.filter((_, idx) => {
       const hasLabels = (labels[idx] && labels[idx].length > 0);
-      const hasSentiment = sentiments[idx];
-      return !hasLabels && !hasSentiment;
+      // const hasSentiment = sentiments[idx]; // Removed
+      return !hasLabels;
     });
     if (unlabeled.length === 0) {
       alert("All data has been labeled!");
@@ -283,34 +295,7 @@ export default function Home() {
             {renderSentenceWithLabels()}
           </div>
           {/* Sentiment Labeling */}
-          <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-1 w-full">
-            <label className="font-semibold dark:text-gray-100 text-sm sm:text-base">Emotion:</label>
-            <select
-              className="border rounded px-1 py-1 sm:px-2 text-sm sm:text-base dark:bg-gray-900 dark:text-gray-100"
-              value={selectedSentiment}
-              onChange={e => setSelectedSentiment(e.target.value)}
-            >
-              <option value="">Select emotion</option>
-              {SENTIMENTS.map(s => (
-                <option key={s.value} value={s.value}>{s.label}</option>
-              ))}
-            </select>
-            <button
-              onClick={handleSaveSentiment}
-              className="bg-blue-600 text-white px-2 py-1 sm:px-3 sm:py-1 rounded hover:bg-blue-700 text-sm sm:text-base"
-              disabled={!selectedSentiment}
-            >
-              Save
-            </button>
-            {sentiments[currentIdx] && (
-              (() => {
-                const s = SENTIMENTS.find(s => s.value === sentiments[currentIdx]);
-                return s ? (
-                  <span className={`ml-2 text-sm font-semibold px-2 py-0.5 rounded ${s.color}`}>{s.label}</span>
-                ) : null;
-              })()
-            )}
-          </div>
+          {/* Remove sentence-level emotion UI */}
           {/* Words Display */}
           <div className="flex flex-wrap gap-1 p-1 sm:p-2 border rounded min-h-[28px] sm:min-h-[36px] bg-gray-50 dark:bg-gray-900 mb-1 w-full overflow-x-auto text-base sm:text-lg">
             {words.map((word, idx) => {
@@ -335,12 +320,28 @@ export default function Home() {
               id="role-select"
               className="border rounded px-1 py-1 sm:px-2 text-sm sm:text-base dark:bg-gray-900 dark:text-gray-100"
               value={selectedRole}
-              onChange={e => setSelectedRole(e.target.value)}
+              onChange={e => { setSelectedRole(e.target.value); setAspectEmotion(""); }}
             >
               {SRL_ROLES.map(role => (
                 <option key={role.value} value={role.value}>{role.label}</option>
               ))}
             </select>
+            {/* Show emotion dropdown only for ASPECT */}
+            {selectedRole === "ASPECT" && (
+              <>
+                <label className="font-semibold dark:text-gray-100 text-sm sm:text-base ml-2">Emotion:</label>
+                <select
+                  className="border rounded px-1 py-1 sm:px-2 text-sm sm:text-base dark:bg-gray-900 dark:text-gray-100"
+                  value={aspectEmotion}
+                  onChange={e => setAspectEmotion(e.target.value)}
+                >
+                  <option value="">None</option>
+                  {SENTIMENTS.map(s => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
+                </select>
+              </>
+            )}
             <button
               onClick={handleSaveLabel}
               className={`bg-blue-600 text-white px-2 py-1 sm:px-3 sm:py-1 rounded hover:bg-blue-700 text-sm sm:text-base ${selectedWords.length === 0 ? "opacity-50 cursor-not-allowed" : ""}`}
@@ -389,6 +390,13 @@ export default function Home() {
                   <span className="text-sm px-2 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100 font-semibold">
                     {label.role}
                   </span>
+                  {/* Show emotion badge if ASPECT and has emotion */}
+                  {label.role === "ASPECT" && label.emotion && (() => {
+                    const s = SENTIMENTS.find(s => s.value === label.emotion);
+                    return s ? (
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded ${s.color}`}>{s.label}</span>
+                    ) : null;
+                  })()}
                   <button
                     className="ml-2 text-sm text-red-500 hover:underline dark:text-red-400"
                     onClick={() => handleRemoveLabel(idx)}
