@@ -5,9 +5,6 @@ const SRL_ROLES = [
   { value: "ASPECT", label: "ASPECT", desc: "Phần của bộ phim được đề cập (ví dụ: diễn xuất, cốt truyện, nhạc phim)" },
   { value: "OPINION", label: "OPINION", desc: "Ý kiến, cảm xúc (ví dụ: nhàm chán, hấp dẫn, tệ)" },
   { value: "HOLDER", label: "HOLDER", desc: "Người đưa ra ý kiến (thường là người đánh giá, có thể ẩn)" },
-  { value: "TARGET", label: "TARGET", desc: "Đối tượng được nói đến (thường là bộ phim hoặc một khía cạnh nào đó)" },
-  { value: "NEGATION", label: "NEGATION", desc: "Từ phủ định làm thay đổi ý nghĩa (ví dụ: không, chưa từng)" },
-  { value: "TIME", label: "TIME", desc: "Thông tin thời gian nếu có (ví dụ: 'tối qua', 'năm 2020')" },
   { value: "MODALITY", label: "MODALITY", desc: "Mức độ, sắc thái (ví dụ: 'có thể tốt hơn', 'rất thích')" },
 ];
 
@@ -250,9 +247,6 @@ export default function Home() {
         ASPECT: "bg-blue-200 text-blue-900 dark:bg-blue-800 dark:text-blue-100 font-semibold",
         OPINION: "bg-yellow-200 text-yellow-900 dark:bg-yellow-700 dark:text-yellow-100 font-semibold",
         HOLDER: "bg-green-200 text-green-900 dark:bg-green-700 dark:text-green-100 font-semibold",
-        TARGET: "bg-purple-200 text-purple-900 dark:bg-purple-700 dark:text-purple-100 font-semibold",
-        NEGATION: "bg-red-200 text-red-900 dark:bg-red-700 dark:text-red-100 font-semibold",
-        TIME: "bg-pink-200 text-pink-900 dark:bg-pink-700 dark:text-pink-100 font-semibold",
         MODALITY: "bg-orange-200 text-orange-900 dark:bg-orange-700 dark:text-orange-100 font-semibold",
       };
       const color = colorMap[l.role as keyof typeof colorMap] || "bg-gray-200 text-gray-900 dark:bg-gray-700 dark:text-gray-100 font-semibold";
@@ -360,9 +354,6 @@ export default function Home() {
                   ASPECT: "bg-blue-200 text-blue-900 dark:bg-blue-800 dark:text-blue-100",
                   OPINION: "bg-yellow-200 text-yellow-900 dark:bg-yellow-700 dark:text-yellow-100",
                   HOLDER: "bg-green-200 text-green-900 dark:bg-green-700 dark:text-green-100",
-                  TARGET: "bg-purple-200 text-purple-900 dark:bg-purple-700 dark:text-purple-100",
-                  NEGATION: "bg-red-200 text-red-900 dark:bg-red-700 dark:text-red-100",
-                  TIME: "bg-pink-200 text-pink-900 dark:bg-pink-700 dark:text-pink-100",
                   MODALITY: "bg-orange-200 text-orange-900 dark:bg-orange-700 dark:text-orange-100",
                 };
                 return (
